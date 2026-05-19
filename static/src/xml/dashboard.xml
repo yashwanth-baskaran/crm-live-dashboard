@@ -1,0 +1,339 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+<t t-name="crm_live_dashboard.Chart">
+    <div style="position:relative;height:100%;width:100%;"><canvas t-ref="canvas"/></div>
+</t>
+
+<t t-name="crm_live_dashboard.Main">
+    <div class="cld">
+
+        <div class="cld-header">
+            <div class="cld-header-left">
+                <i class="fa fa-tachometer" style="font-size:28px;color:#0052cc;"/>
+                <div>
+                    <div class="cld-title">CRM Live Pipeline</div>
+                    <div class="cld-sub">Real-time sales tracker</div>
+                </div>
+            </div>
+            <div class="cld-header-right">
+                <span t-att-class="state.live ? 'cld-live cld-live-on' : 'cld-live'">
+                    <span class="cld-dot"/> LIVE
+                    <t t-if="state.updated"> · <t t-esc="state.updated"/></t>
+                </span>
+                <button class="cld-btn-share" t-on-click="onShare"><i class="fa fa-envelope"/> Share</button>
+                <button class="cld-btn-refresh" t-on-click="onRefresh"><i class="fa fa-refresh"/> Refresh</button>
+            </div>
+        </div>
+
+        <div class="cld-filters">
+            <div class="cld-fg">
+                <div class="cld-flabel">PERIOD</div>
+                <div class="cld-periods">
+                    <button t-att-class="state.period === 'yesterday'  ? 'cld-pb cld-pb-on' : 'cld-pb'" t-on-click="onYesterday">Yesterday</button>
+                    <button t-att-class="state.period === 'today'      ? 'cld-pb cld-pb-on' : 'cld-pb'" t-on-click="onToday">Today</button>
+                    <button t-att-class="state.period === 'last_week'  ? 'cld-pb cld-pb-on' : 'cld-pb'" t-on-click="onLastWeek">Last Week</button>
+                    <button t-att-class="state.period === 'last_month' ? 'cld-pb cld-pb-on' : 'cld-pb'" t-on-click="onLastMonth">Last Month</button>
+                    <button t-att-class="state.period === 'custom'     ? 'cld-pb cld-pb-on' : 'cld-pb'" t-on-click="onCustom">Custom</button>
+                </div>
+                <t t-if="state.period === 'custom'">
+                    <div class="cld-daterange">
+                        <input type="date" class="cld-datein" t-att-value="state.dateFrom" t-on-change="onDateFrom"/>
+                        <span>to</span>
+                        <input type="date" class="cld-datein" t-att-value="state.dateTo" t-on-change="onDateTo"/>
+                    </div>
+                </t>
+            </div>
+            <div class="cld-fg">
+                <div class="cld-flabel">SALESPERSON</div>
+                <div class="cld-pills">
+                    <t t-foreach="state.salespersons" t-as="sp" t-key="sp.id">
+                        <span t-att-class="state.userIds.includes(sp.id) ? 'cld-pill cld-pill-on' : 'cld-pill'"
+                              t-on-click="() => this.toggleUser(sp.id)"
+                              t-esc="sp.name"/>
+                    </t>
+                </div>
+            </div>
+        </div>
+
+        <t t-if="state.loading">
+            <div class="cld-center"><i class="fa fa-spinner fa-spin fa-2x"/> Loading...</div>
+        </t>
+        <t t-elif="state.error">
+            <div class="cld-error" t-esc="state.error"/>
+        </t>
+        <t t-else="">
+
+            <div class="cld-kpis">
+                <div class="cld-kpi cld-kpi-blue"   t-on-click="kpiTotal">
+                    <i class="fa fa-briefcase fa-2x"/>
+                    <div><div class="cld-kv" t-esc="state.kpis.total || 0"/><div class="cld-kl">Opportunities</div></div>
+                </div>
+                <div class="cld-kpi cld-kpi-orange" t-on-click="kpiStuck">
+                    <i class="fa fa-exclamation-circle fa-2x"/>
+                    <div><div class="cld-kv" t-esc="state.kpis.stuck || 0"/><div class="cld-kl">Stuck in 1st Stage</div></div>
+                </div>
+                <div class="cld-kpi cld-kpi-green"  t-on-click="kpiWon">
+                    <i class="fa fa-trophy fa-2x"/>
+                    <div><div class="cld-kv" t-esc="state.kpis.won || 0"/><div class="cld-kl">Deals Won</div></div>
+                </div>
+                <div class="cld-kpi cld-kpi-red"    t-on-click="kpiLost">
+                    <i class="fa fa-times-circle fa-2x"/>
+                    <div><div class="cld-kv" t-esc="state.kpis.lost || 0"/><div class="cld-kl">Lost</div></div>
+                </div>
+                <div class="cld-kpi cld-kpi-purple">
+                    <i class="fa fa-usd fa-2x"/>
+                    <div><div class="cld-kv" t-esc="fmtM(state.kpis.pipe)"/><div class="cld-kl">Pipeline Value</div></div>
+                </div>
+            </div>
+
+            <div class="cld-tabs">
+                <button t-att-class="state.tab === 'overview' ? 'cld-tab cld-tab-on' : 'cld-tab'" t-on-click="tabOverview">Overview</button>
+                <button t-att-class="state.tab === 'funnel'   ? 'cld-tab cld-tab-on' : 'cld-tab'" t-on-click="tabFunnel">Stage Funnel</button>
+                <button t-att-class="state.tab === 'team'     ? 'cld-tab cld-tab-on' : 'cld-tab'" t-on-click="tabTeam">Team Report</button>
+                <button t-att-class="state.tab === 'lost'     ? 'cld-tab cld-tab-on' : 'cld-tab'" t-on-click="tabLost">Lost Analysis</button>
+                <button t-att-class="state.tab === 'inactive' ? 'cld-tab cld-tab-on' : 'cld-tab'" t-on-click="tabInactive">Inactive</button>
+                <button t-att-class="state.tab === 'activity' ? 'cld-tab cld-tab-on' : 'cld-tab'" t-on-click="tabActivity">Activity Feed</button>
+            </div>
+
+            <div class="cld-content">
+
+                <t t-if="state.tab === 'overview'">
+                    <div class="cld-grid2">
+                        <div class="cld-card">
+                            <div class="cld-ct">Opportunities by Stage</div>
+                            <div class="cld-chartbox">
+                                <DashChart type="'bar'" labels="stageLabels" datasets="stageDatasets"/>
+                            </div>
+                        </div>
+                        <div class="cld-card">
+                            <div class="cld-ct">Team Summary</div>
+                            <table class="cld-tbl">
+                                <thead><tr><th>Salesperson</th><th>Assigned</th><th>Advanced</th><th>Won</th><th>Lost</th></tr></thead>
+                                <tbody>
+                                    <t t-foreach="state.breakdown" t-as="u" t-key="u.uid">
+                                        <tr>
+                                            <td><b t-esc="u.name"/></td>
+                                            <td class="cld-link" t-on-click="() => this.goUserOpps(u.uid)" t-esc="u.total"/>
+                                            <td t-esc="u.moved"/>
+                                            <td class="cld-link" t-on-click="() => this.goUserWon(u.uid)" t-esc="u.won"/>
+                                            <td class="cld-link cld-red" t-on-click="() => this.goUserLost(u.uid)" t-esc="u.lost"/>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </t>
+
+                <t t-elif="state.tab === 'funnel'">
+                    <div class="cld-card">
+                        <div class="cld-ct">Stage Funnel — click any row to view those opportunities</div>
+                        <t t-foreach="state.funnel" t-as="s" t-key="s.sid">
+                            <div class="cld-frow cld-link" t-on-click="() => this.goStage(s.sid)">
+                                <div class="cld-fname" t-esc="s.name"/>
+                                <div class="cld-ftrack"><div class="cld-fbar" t-att-style="'width:' + s.pct + '%'"/></div>
+                                <div class="cld-fcount"><b t-esc="s.count"/> <span class="cld-grey" t-esc="' · ' + fmtM(s.value)"/></div>
+                            </div>
+                        </t>
+                        <div class="cld-chartbox" style="margin-top:20px">
+                            <DashChart type="'bar'" labels="stageLabels" datasets="stageDatasets"/>
+                        </div>
+                    </div>
+                </t>
+
+                <t t-elif="state.tab === 'team'">
+                    <div class="cld-card">
+                        <div class="cld-ct">Team Performance — click any number to open those opportunities</div>
+                        <div style="overflow-x:auto">
+                            <table class="cld-tbl">
+                                <thead>
+                                    <tr>
+                                        <th>Salesperson</th><th>Assigned</th><th>Advanced</th>
+                                        <th>In 1st Stage</th><th>Won</th><th>Lost</th>
+                                        <th>Win %</th><th>Avg Days</th><th>Pipeline</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="state.breakdown" t-as="u" t-key="u.uid">
+                                        <tr>
+                                            <td>
+                                                <div class="cld-urow">
+                                                    <div class="cld-av" t-esc="u.name[0]"/>
+                                                    <div>
+                                                        <div t-esc="u.name"/>
+                                                        <div class="cld-grey" style="font-size:11px"><t t-esc="u.winpct"/>% win rate</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="cld-link" t-on-click="() => this.goUserOpps(u.uid)" t-esc="u.total"/>
+                                            <td t-esc="u.moved"/>
+                                            <td class="cld-link" t-on-click="() => this.goUserStuck(u.uid)" t-esc="u.stuck"/>
+                                            <td class="cld-link" t-on-click="() => this.goUserWon(u.uid)" t-esc="u.won"/>
+                                            <td class="cld-link cld-red" t-on-click="() => this.goUserLost(u.uid)" t-esc="u.lost"/>
+                                            <td>
+                                                <span t-att-class="u.winpct >= 30 ? 'cld-badge cld-hi' : u.winpct >= 10 ? 'cld-badge cld-mid' : 'cld-badge cld-lo'">
+                                                    <t t-esc="u.winpct"/>%
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <t t-if="u.avgDays">
+                                                    <span t-att-class="u.avgDays > 7 ? 'cld-slow' : u.avgDays > 3 ? 'cld-mid-days' : 'cld-fast'">
+                                                        <t t-esc="u.avgDays"/>d
+                                                    </span>
+                                                </t>
+                                                <t t-else=""><span class="cld-grey">—</span></t>
+                                            </td>
+                                            <td t-esc="fmtM(u.pipe)"/>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </t>
+
+                <t t-elif="state.tab === 'lost'">
+                    <div class="cld-grid2">
+                        <div class="cld-card">
+                            <div class="cld-ct">Lost by Reason — click to view</div>
+                            <t t-if="state.lostReasons.length === 0">
+                                <div class="cld-empty">No lost opportunities this period</div>
+                            </t>
+                            <t t-else="">
+                                <t t-foreach="state.lostReasons" t-as="r" t-key="r.id">
+                                    <div class="cld-frow cld-link" t-on-click="() => this.goLostReason(r.id)">
+                                        <div class="cld-fname cld-red" t-esc="r.name"/>
+                                        <div class="cld-ftrack cld-ftrack-red">
+                                            <div class="cld-fbar-red" t-att-style="'width:' + r.pct + '%'"/>
+                                        </div>
+                                        <div class="cld-fcount cld-red"><b t-esc="r.count"/></div>
+                                    </div>
+                                </t>
+                            </t>
+                        </div>
+                        <div class="cld-card">
+                            <div class="cld-ct">Lost per Salesperson</div>
+                            <table class="cld-tbl">
+                                <thead><tr><th>Salesperson</th><th>Lost</th><th>Win %</th></tr></thead>
+                                <tbody>
+                                    <t t-foreach="state.breakdown" t-as="u" t-key="u.uid">
+                                        <t t-if="u.lost > 0">
+                                            <tr>
+                                                <td t-esc="u.name"/>
+                                                <td class="cld-link cld-red" t-on-click="() => this.goUserLost(u.uid)" t-esc="u.lost"/>
+                                                <td>
+                                                    <span t-att-class="u.winpct >= 30 ? 'cld-badge cld-hi' : u.winpct >= 10 ? 'cld-badge cld-mid' : 'cld-badge cld-lo'">
+                                                        <t t-esc="u.winpct"/>%
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        </t>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </t>
+
+                <t t-elif="state.tab === 'inactive'">
+                    <div class="cld-grid2">
+                        <div class="cld-card">
+                            <div class="cld-ct">Zero activity this period</div>
+                            <t t-if="state.inactive.length === 0">
+                                <div class="cld-ok">All salespersons are active!</div>
+                            </t>
+                            <t t-else="">
+                                <t t-foreach="state.inactive" t-as="sp" t-key="sp.id">
+                                    <div class="cld-irow cld-link" t-on-click="() => this.goInactive(sp.id)">
+                                        <div class="cld-av cld-av-red" t-esc="sp.name[0]"/>
+                                        <div style="flex:1">
+                                            <b t-esc="sp.name"/>
+                                            <div class="cld-grey" style="font-size:11px">No opportunities this period</div>
+                                        </div>
+                                        <span class="cld-badge cld-lo">Inactive</span>
+                                    </div>
+                                </t>
+                            </t>
+                        </div>
+                        <div class="cld-card">
+                            <div class="cld-ct">Has opportunities but no stage movements</div>
+                            <t t-if="state.noMoves.length === 0">
+                                <div class="cld-ok">Everyone is moving opportunities!</div>
+                            </t>
+                            <t t-else="">
+                                <t t-foreach="state.noMoves" t-as="u" t-key="u.uid">
+                                    <div class="cld-irow cld-link" t-on-click="() => this.goUserOpps(u.uid)">
+                                        <div class="cld-av cld-av-orange" t-esc="u.name[0]"/>
+                                        <div style="flex:1">
+                                            <b t-esc="u.name"/>
+                                            <div class="cld-grey" style="font-size:11px"><t t-esc="u.total"/> opps — 0 moved</div>
+                                        </div>
+                                        <span class="cld-badge cld-mid">No Movement</span>
+                                    </div>
+                                </t>
+                            </t>
+                        </div>
+                    </div>
+                </t>
+
+                <t t-elif="state.tab === 'activity'">
+                    <div class="cld-card">
+                        <div class="cld-ct">Recent Activity — click any row to open that opportunity</div>
+                        <t t-if="state.activity.length === 0">
+                            <div class="cld-empty">No activity in this period</div>
+                        </t>
+                        <t t-else="">
+                            <t t-foreach="state.activity" t-as="item" t-key="item.id">
+                                <div t-att-class="item.lost ? 'cld-arow cld-arow-lost cld-link' : 'cld-arow cld-link'"
+                                     t-on-click="() => this.goLead(item.id)">
+                                    <div class="cld-av" t-esc="item.user ? item.user[0] : '?'"/>
+                                    <div style="flex:1">
+                                        <b t-esc="item.user"/>
+                                        <t t-if="item.lost"> lost </t><t t-else=""> moved </t>
+                                        <em t-esc="item.name"/>
+                                        <t t-if="!item.lost"> → <b t-esc="item.stage"/></t>
+                                        <div class="cld-grey" style="font-size:11px" t-esc="timeAgo(item.when)"/>
+                                    </div>
+                                    <span t-att-class="item.lost ? 'cld-badge cld-lo' : 'cld-badge cld-hi'"
+                                          t-esc="item.lost ? 'Lost' : item.stage"/>
+                                </div>
+                            </t>
+                        </t>
+                    </div>
+                </t>
+
+            </div>
+        </t>
+
+        <t t-if="state.showShare">
+            <div class="cld-overlay" t-on-click="closeShare">
+                <div class="cld-modal" t-on-click.stop="">
+                    <div class="cld-mh">
+                        <b>Share Report</b>
+                        <button class="cld-mclose" t-on-click="closeShare">x</button>
+                    </div>
+                    <div class="cld-mb">
+                        <t t-if="state.shareDone">
+                            <div class="cld-ok">Mail composer opened!</div>
+                        </t>
+                        <t t-else="">
+                            <p style="color:#666;font-size:13px">Opens the Odoo mail composer with the dashboard summary.</p>
+                        </t>
+                    </div>
+                    <div class="cld-mf">
+                        <button class="cld-btn-share" t-on-click="closeShare">Cancel</button>
+                        <t t-if="!state.shareDone">
+                            <button class="cld-btn-refresh" t-on-click="doShare">
+                                <i class="fa fa-paper-plane"/> Send via Mail
+                            </button>
+                        </t>
+                    </div>
+                </div>
+            </div>
+        </t>
+
+    </div>
+</t>
+
+</templates>
